@@ -4,8 +4,8 @@ Created on Wed Apr 26 00:16:51 2017
 
 @author: NTU_Math
 """
-import numpy, scipy as np, sp
-import math
+import numpy as np
+import scipy as sp
 import wwhat    
 
 class init:
@@ -29,7 +29,8 @@ def CWT(t, x, opts = init):
 
     """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
     """prepare for the input"""
-    
+    from math import sqrt, pi
+    from numpy import power
     nvoice = 32;
     scale = 2;
     Oct = 1;
@@ -37,7 +38,6 @@ def CWT(t, x, opts = init):
     """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
     """start to do CWT"""
     
-    dt = t[1]-t[0]
     n = len(x)
     """%% assume the original signal is on [0,L]."""
     """%% assume the signal is on [0,1]. Frequencies are rescaled to xi/L"""
@@ -48,11 +48,11 @@ def CWT(t, x, opts = init):
     xhat = np.fft.fft(x)
     
     noctave = np.floor(np.log2(n)) - Oct
-    tfr = np.zeros((int(nvoice*noctave),n),dtype=complex)
+    tfr = np.zeros((n,int(nvoice*noctave)),dtype=complex)
     kscale = 1
-    tfrtic = np.zeros((int(nvoice*noctave),1))
+    tfrtic = np.zeros(int(nvoice*noctave))
     for jj in range(1 , int(nvoice*noctave)+1):
-        tfrtic[jj-1] = scale*math.pow(2,jj/nvoice)
+        tfrtic[jj-1] = scale*power(2,jj/nvoice)
 
 
 
@@ -62,140 +62,130 @@ def CWT(t, x, opts = init):
         uFix = -sp.linalg.orth(uFix)
 
 
-    for jo in range(1,noctave+1): """# of scales"""
-         for jv in range(1,nvoice+1):
-             qscale = scale * math.pow(2,jv/nvoice)
-             omega =  xi/qscale            
+    for jo in range(1,int(noctave)+1): 
+        """# of scales"""
+        for jv in range(1,nvoice+1):
+            qscale = scale * power(2,jv/nvoice)
+            omega =  xi/qscale            
              
-             if (opts.motherwavelet=='morse'):
-                 windowq = wwhat(omega', opts.beta, opts.gam, opts.k);
-                 windowq = windowq' ;
+            if (opts.motherwavelet == 'morse'):
+                windowq = wwhat(np.conj(omega), opts.beta, opts.gam, opts.k)
+                windowq = np.conj(windowq.T)
+                
+            elif (opts.motherwavelet == 'morse-b'):
+                u = np.random.randn(opts.dim,1)
+                u = -sp.linalg.orth(u)
+                W = np.zeros((len(omega), opts.dim))
+                for ki in range(1,opts.dim+1):
+                    W[:,ki-1] = wwhat(np.conj(omega), opts.beta, opts.gam, ki-1)
+                
+                windowq = np.dot(W ,u)
             
-        elseif strcmp(opts.motherwavelet, 'morse-b');
+            elif (opts.motherwavelet == 'morse-c'):
+                W = np.zeros(len(omega), opts.dim)
+                for ki in range(1,opts.dim+1):
+                    W[:,ki-1] = wwhat(np.conj(omega), opts.beta, opts.gam, ki-1)
             
-            u = randn(opts.dim,1); u = orth(u);
-            W = zeros(length(omega), opts.dim);
-            for ki = 1:opts.dim
-                W(:,ki) = wwhat(omega', opts.beta, opts.gam, ki-1);
-            end
-            windowq = W * u;
+                windowq = np.dot(W,uFix)
             
-        elseif strcmp(opts.motherwavelet, 'morse-c');
-
-            W = zeros(length(omega), opts.dim);
-            for ki = 1:opts.dim
-                W(:,ki) = wwhat(omega', opts.beta, opts.gam, ki-1);
-            end
-            windowq = W * uFix;
-            
-        elseif strcmp(opts.motherwavelet, 'morse-a');
-            
-            switch opts.k
-                case 0
-                    windowq1 = wwhat(omega',opts.beta,opts.gam,0);
-                    windowq2 = wwhat(omega',opts.beta,opts.gam,1);
-                    windowq = ( windowq1 + windowq2 ) / sqrt(2);
-                case 1
-                    windowq1 = wwhat(omega',opts.beta,opts.gam,0);
-                    windowq2 = wwhat(omega',opts.beta,opts.gam,1);
+            elif (opts.motherwavelet == 'morse-a'):
+                if(opts.k == 0):
+                    windowq1 = wwhat(np.conj(omega),opts.beta,opts.gam,0)
+                    windowq2 = wwhat(np.conj(omega),opts.beta,opts.gam,1)
+                    windowq = ( windowq1 + windowq2 ) / sqrt(2)
+                elif (opts.k == 1):
+                    windowq1 = wwhat(np.conj(omega),opts.beta,opts.gam,0);
+                    windowq2 = wwhat(np.conj(omega),opts.beta,opts.gam,1);
                     windowq = ( windowq1 - windowq2 ) / sqrt(2);
-            end
-            windowq = windowq';
+            
+                windowq = np.conj(windowq.T)
+            
+            elif (opts.motherwavelet == 'Cinfc'):
+                tmp0 = (omega-opts.CENTER)/opts.FWHM
+                tmp1 = power(tmp0,2)-1
+                windowq = np.exp(1/tmp1)
+                windowq[omega >= (opts.CENTER+opts.FWHM)] = 0
+                windowq[omega <= (opts.CENTER-opts.FWHM)] = 0
+                windowq = np.array([windowq]).T
 
-	                
-        elseif strcmp(opts.motherwavelet, 'Cinfc');
+            elif (opts.motherwavelet == 'morlet'):
+                windowq = 4*sqrt(pi)*np.exp(-4*power(omega-0.69*pi,2))-4.89098e-4*4*sqrt(pi)*np.exp(-4*power(omega,2))
+                windowq = np.array([windowq]).T
 
-            tmp0 = (omega-opts.CENTER)./opts.FWHM;
-            tmp1 = (tmp0).^2-1;
-
-            windowq = exp( 1./tmp1 );
-            windowq( find( omega >= (opts.CENTER+opts.FWHM) ) ) = 0;
-            windowq( find( omega <= (opts.CENTER-opts.FWHM) ) ) = 0;
-
-        elseif strcmp(opts.motherwavelet, 'morlet')
-
-            windowq = 4*sqrt(pi)*exp(-4*(omega-0.69*pi).^2)-4.89098d-4*4*sqrt(pi)*exp(-4*omega.^2);
-
-        elseif strcmp(opts.motherwavelet, 'gaussian');
-
-            psihat = @(f) exp( -log(2)*( 2*(f-opts.CENTER)./opts.FWHM ).^2 );
-            windowq = psihat(omega);
+            elif (opts.motherwavelet == 'gaussian'):
+                psihat = lambda f: np.exp( -np.log(2)*power( 2*(f-opts.CENTER)/opts.FWHM,2) )
+                windowq = psihat(omega)
+                windowq = np.array([windowq]).T
 
 
-        elseif strcmp(opts.motherwavelet, 'meyer');  %% Meyer
-
-            windowq = zeros(size(omega));
-            int1 = find((omega>=5./8*0.69*pi)&(omega<0.69*pi));
-            int2 = find((omega>=0.69*pi)&(omega<7./4*0.69*pi));
-            windowq(int1) = sin(pi/2*meyeraux((omega(int1)-5./8*0.69*pi)/(3./8*0.69*pi)));
-            windowq(int2) = cos(pi/2*meyeraux((omega(int2)-0.69*pi)/(3./4*0.69*pi)));
-
-        elseif strcmp(opts.motherwavelet, 'BL3');    %% B-L 3
-
-            phihat = (2*pi)^(-0.5)*(sin(omega/4)./(omega/4)).^4; phihat(1) = (2*pi)^(-0.5);
-            aux1 = 151./315 + 397./840*cos(omega/2) + 1./21*cos(omega) + 1./2520*cos(3*omega/2);
-            phisharphat = phihat.*(aux1.^(-0.5));
-
-            aux2 = 151./315 - 397./840*cos(omega/2) + 1./21*cos(omega) - 1./2520*cos(3*omega/2);
-            aux3 = 151./315 + 397./840*cos(omega) + 1./21*cos(2*omega) + 1./2520*cos(3*omega);
-            msharphat = sin(omega/4).^4.*(aux2.^(0.5)).*(aux3.^(-0.5));
-            windowq = phisharphat.*msharphat.*exp(i*omega/2).*(omega>=0);
-
-	end
-
-        windowq = windowq ./ sqrt(qscale);
-
-        what = windowq .* xhat;
-
-        w = ifft(what);
-        tfr(:,kscale) = transpose(w);
-        kscale = kscale+1;
-
-    end
-
-    scale = scale .* 2;
-
-end
+            elif (opts.motherwavelet == 'meyer'):
+                windowq = np.zeros(len(omega))
+                int1 = np.logical_and(omega>=5/8*0.69*pi , omega<0.69*pi)
+                int2 = np.logical_and(omega>=0.69*pi , omega<7/4*0.69*pi)
+                meyeraux = lambda f: 35*power(f,4)-84*power(f,5)+70*power(f,6)-20*power(f,7)
+                windowq[int1] = np.sin(pi/2*meyeraux((omega[int1]-5/8*0.69*pi)/(3/8*0.69*pi)))
+                windowq[int2] = np.cos(pi/2*meyeraux((omega[int2]-0.69*pi)/(3/4*0.69*pi)))
+                windowq = np.array([windowq]).T
 
 
-%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    %% calculate the constant for reconstruction
-    %% TODO: calculate Rpsi for other mother wavelets
-xi = [0.05:1/10000:10];
+            elif (opts.motherwavelet == 'BL3'):
+                phihat = power(2*pi,-0.5)*power((np.sin(omega/4)/(omega/4)),4)
+                phihat[0] = power(2*pi,-0.5)
+                aux1 = 151/315 + 397/840*np.cos(omega/2) + 1/21*np.cos(omega) + 1/2520*np.cos(3*omega/2)
+                phisharphat = phihat*power(aux1,-0.5)
+
+                aux2 = 151/315 - 397/840*np.cos(omega/2) + 1/21*np.cos(omega) - 1/2520*np.cos(3*omega/2)
+                aux3 = 151/315 + 397/840*np.cos(omega) + 1/21*np.cos(2*omega) + 1/2520*np.cos(3*omega)
+                msharphat = power(np.sin(omega/4),4)*power(aux2,0.5)*power(aux3,-0.5)
+                windowq = phisharphat*msharphat*np.exp(1j*omega/2)*(omega>=0)
+                windowq = np.array([windowq]).T
+                
+
+
+            windowq = windowq/sqrt(qscale)
+            what = windowq*np.array([xhat]).T
+            w = np.fft.ifft(what.T)
+            tfr[:,kscale-1] = w
+            kscale+=1
+
+
+
+        scale*=2
+
+
+
+
+    """%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    """%% calculate the constant for reconstruction
+    %% TODO: calculate Rpsi for other mother wavelets"""
+    xi = np.arange(0.05,10+1/10000,1/10000)
     
-if strcmp(opts.motherwavelet, 'gaussian');   %% Gaussian (not really wavelet)
+    if (opts.motherwavelet == 'gaussian'):   
+        """%% Gaussian (not really wavelet)"""
 
-    psihat = @(f) exp( -log(2)*( 2*(f-opts.CENTER)./opts.FWHM ).^2 );
-    windowq = psihat(xi);
-    Rpsi = sum(windowq./xi)/10000;
+        psihat = lambda f: np.exp( -np.log(2)*power( 2*(f-opts.CENTER)/opts.FWHM,2))
+        windowq = psihat(xi)
+        Rpsi = sum(windowq/xi)/10000
 
 
-elseif strcmp(opts.motherwavelet, 'morlet');
+    elif (opts.motherwavelet == 'morlet'):
+        windowq = 4*sqrt(pi)*np.exp(-4*power(xi-0.69*pi,2))-4.89098e-4*4*sqrt(pi)*np.exp(-4*power(xi,2))
+        Rpsi = sum(windowq/xi)/10000
 
-    windowq = 4*sqrt(pi)*exp(-4*(xi-0.69*pi).^2)-4.89098d-4*4*sqrt(pi)*exp(-4*xi.^2);
-    Rpsi = sum(windowq./xi)/10000;
-
-elseif strcmp(opts.motherwavelet, 'Cinfc');
-
-    tmp0 = (xi - opts.CENTER)./opts.FWHM;
-    tmp1 = (tmp0).^2-1;
-
-    windowq = exp( 1./tmp1 );
-    windowq( find( xi >= (opts.CENTER+opts.FWHM) ) ) = 0;
-    windowq( find( xi <= (opts.CENTER-opts.FWHM) ) ) = 0;
-    Rpsi = sum(windowq./xi)/10000;
+    elif (opts.motherwavelet == 'Cinfc'):
+        tmp0 = (xi - opts.CENTER)/opts.FWHM
+        tmp1 = power(tmp0,2)-1
+        windowq = np.exp(1/tmp1)
+        windowq[xi >= (opts.CENTER+opts.FWHM)] = 0
+        windowq[xi <= (opts.CENTER-opts.FWHM)] = 0
+        Rpsi = sum(windowq/xi)/10000
  
-else
-	
-		%% Normalization is not implemented for Other mother wavelets
-	Rpsi = 1 ;
+    else:
+        """%% Normalization is not implemented for Other mother wavelets"""
+        Rpsi = 1 
   
-end
-
-
-tfr = tfr ./ Rpsi;
-
-
-end
+    tfr = tfr/Rpsi
+    
+    return tfr.T, tfrtic
 
 
