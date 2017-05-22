@@ -3,6 +3,7 @@ import all needed packages
 """
 import numpy as np
 import math as math
+import scipy as sp
 """
 functions
 """
@@ -417,7 +418,7 @@ def ConceFT_sqSTFT_C(x, lowFreq, highFreq, alpha, hop, WinLen, dim, supp, MT, Se
             if not Second:
                 _, _, tfrsqX, tfrsqtic = sqSTFTbase(x, lowFreq, highFreq, alpha, hop, np.conj(rh), np.conj(rDh), Smooth, Hemi)
             else:
-                _, _, _, tfrsqX, tfrsqtic = sqSTFTbase2nd(x, lowFreq, highFreq, alpha, hop, np.conj(rh), np.conj(rDh), dwindow(np.conj(rDh)), 0);
+                _, _, _, tfrsqX, tfrsqtic = sqSTFTbase2nd(x, lowFreq, highFreq, alpha, hop, np.conj(rh), np.conj(rDh), np.array([dwindow(np.conj(rDh))]), 0);
 		
             ConceFT = ConceFT + tfrsqX 
                  
@@ -440,3 +441,359 @@ def imageSQ(ax, t, ytic, M, Qv, cm = 'Greys'):
     %M(find(M<m)) = m ;
     """
     ax.pcolorfast(t, ytic, M, cmap = cm)
+    
+    
+    
+def wwhat(f,beta,gam,k):
+    """% This function calculates morse complex wavelets (in frequency domain)
+    % It is very similar to morsefreqs"""
+    from scipy.special import gamma
+    from math import sqrt, pi
+    from numpy import power
+    c=-1+((2*beta+1)/gam)
+    con=sqrt(gam*power(2,((2.*beta+1)/gam))*gamma(k+1))
+    con2=sqrt(pi*gamma(k+((2.*beta+1)/gam)))
+    con=sqrt(pi/2)*(con/con2)
+    arr=2*(power(2*pi*abs(f),gam))
+    m=con*power(2*pi*abs(f),beta)*np.exp(-power(2*pi*abs(f),gam))*laggen(arr,k,c)
+    m=sqrt(4*pi)*m
+    
+    for j in range(0,len(f)):
+        if (f[j]<0):m[:,j]=0
+    
+    return m
+
+def laggen(x,k,c):
+    """
+    % compute generalized Laguerre poly L_k^c(x)
+    %
+    %
+    """
+    from scipy.special import gammaln
+    from numpy import power
+    l=len(x)
+    sn=-1;
+    s=np.zeros((1,l))
+    for m in range(0,k+1):
+        sn = -sn
+        ga = gammaln(k+c+1)-gammaln(k-m+1)-gammaln(c+m+1)-gammaln(m+1)
+        ga = np.exp(ga)
+        s=s+sn*ga*power(x,m)
+    return s
+
+    
+class init:
+    motherwavelet = 'Cinfc'
+    CENTER = 1
+    FWHM = 0.3
+    
+def CWT(t, x, opts = init):
+    """%
+    % Continuous wavelet transform ver 0.1
+    % Modified from wavelab 85
+    %
+    % INPUT:
+    % OUTPUT:
+    % DEPENDENCY:
+    %
+    % by Hau-tieng Wu 2011-06-20 (hauwu@math.princeton.edu)
+    % by Hau-tieng Wu 2012-12-23 (hauwu@math.princeton.edu)
+    %
+    """
+
+    """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    """prepare for the input"""
+    from math import sqrt, pi
+    from numpy import power
+    nvoice = 32;
+    scale = 2;
+    Oct = 1;
+    
+    """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    """start to do CWT"""
+    
+    n = len(x)
+    """%% assume the original signal is on [0,L]."""
+    """%% assume the signal is on [0,1]. Frequencies are rescaled to xi/L"""
+    if (n%2==0):
+        xi = np.concatenate((np.arange(0,n/2+1) , np.arange(-n/2+1,0)))
+    else:
+        xi = np.concatenate((np.arange(0,n/2) , np.arange(-n/2+1,-1)))
+    xhat = np.fft.fft(x)
+    
+    noctave = np.floor(np.log2(n)) - Oct
+    tfr = np.zeros((n,int(nvoice*noctave)),dtype=complex)
+    kscale = 1
+    tfrtic = np.zeros(int(nvoice*noctave))
+    for jj in range(1 , int(nvoice*noctave)+1):
+        tfrtic[jj-1] = scale*power(2,jj/nvoice)
+
+
+
+    if (opts.motherwavelet=='morse-b' or opts.motherwavelet=='morse-c'):
+        dim = opts.dim
+        uFix = np.random.randn(dim,1)
+        uFix = -sp.linalg.orth(uFix)
+
+
+    for jo in range(1,int(noctave)+1): 
+        """# of scales"""
+        for jv in range(1,nvoice+1):
+            qscale = scale * power(2,jv/nvoice)
+            omega =  xi/qscale            
+             
+            if (opts.motherwavelet == 'morse'):
+                windowq = wwhat(np.conj(omega), opts.beta, opts.gam, opts.k)
+                windowq = np.conj(windowq.T)
+                
+            elif (opts.motherwavelet == 'morse-b'):
+                u = np.random.randn(opts.dim,1)
+                u = -sp.linalg.orth(u)
+                W = np.zeros((len(omega), opts.dim))
+                for ki in range(1,opts.dim+1):
+                    W[:,ki-1] = wwhat(np.conj(omega), opts.beta, opts.gam, ki-1)
+                
+                windowq = np.dot(W ,u)
+            
+            elif (opts.motherwavelet == 'morse-c'):
+                W = np.zeros(len(omega), opts.dim)
+                for ki in range(1,opts.dim+1):
+                    W[:,ki-1] = wwhat(np.conj(omega), opts.beta, opts.gam, ki-1)
+            
+                windowq = np.dot(W,uFix)
+            
+            elif (opts.motherwavelet == 'morse-a'):
+                if(opts.k == 0):
+                    windowq1 = wwhat(np.conj(omega),opts.beta,opts.gam,0)
+                    windowq2 = wwhat(np.conj(omega),opts.beta,opts.gam,1)
+                    windowq = ( windowq1 + windowq2 ) / sqrt(2)
+                elif (opts.k == 1):
+                    windowq1 = wwhat(np.conj(omega),opts.beta,opts.gam,0);
+                    windowq2 = wwhat(np.conj(omega),opts.beta,opts.gam,1);
+                    windowq = ( windowq1 - windowq2 ) / sqrt(2);
+            
+                windowq = np.conj(windowq.T)
+            
+            elif (opts.motherwavelet == 'Cinfc'):
+                tmp0 = (omega-opts.CENTER)/opts.FWHM
+                tmp1 = power(tmp0,2)-1
+                windowq = np.exp(1/tmp1)
+                windowq[omega >= (opts.CENTER+opts.FWHM)] = 0
+                windowq[omega <= (opts.CENTER-opts.FWHM)] = 0
+                windowq = np.array([windowq]).T
+
+            elif (opts.motherwavelet == 'morlet'):
+                windowq = 4*sqrt(pi)*np.exp(-4*power(omega-0.69*pi,2))-4.89098e-4*4*sqrt(pi)*np.exp(-4*power(omega,2))
+                windowq = np.array([windowq]).T
+
+            elif (opts.motherwavelet == 'gaussian'):
+                psihat = lambda f: np.exp( -np.log(2)*power( 2*(f-opts.CENTER)/opts.FWHM,2) )
+                windowq = psihat(omega)
+                windowq = np.array([windowq]).T
+
+
+            elif (opts.motherwavelet == 'meyer'):
+                windowq = np.zeros(len(omega))
+                int1 = np.logical_and(omega>=5/8*0.69*pi , omega<0.69*pi)
+                int2 = np.logical_and(omega>=0.69*pi , omega<7/4*0.69*pi)
+                meyeraux = lambda f: 35*power(f,4)-84*power(f,5)+70*power(f,6)-20*power(f,7)
+                windowq[int1] = np.sin(pi/2*meyeraux((omega[int1]-5/8*0.69*pi)/(3/8*0.69*pi)))
+                windowq[int2] = np.cos(pi/2*meyeraux((omega[int2]-0.69*pi)/(3/4*0.69*pi)))
+                windowq = np.array([windowq]).T
+
+
+            elif (opts.motherwavelet == 'BL3'):
+                phihat = power(2*pi,-0.5)*power((np.sin(omega/4)/(omega/4)),4)
+                phihat[0] = power(2*pi,-0.5)
+                aux1 = 151/315 + 397/840*np.cos(omega/2) + 1/21*np.cos(omega) + 1/2520*np.cos(3*omega/2)
+                phisharphat = phihat*power(aux1,-0.5)
+
+                aux2 = 151/315 - 397/840*np.cos(omega/2) + 1/21*np.cos(omega) - 1/2520*np.cos(3*omega/2)
+                aux3 = 151/315 + 397/840*np.cos(omega) + 1/21*np.cos(2*omega) + 1/2520*np.cos(3*omega)
+                msharphat = power(np.sin(omega/4),4)*power(aux2,0.5)*power(aux3,-0.5)
+                windowq = phisharphat*msharphat*np.exp(1j*omega/2)*(omega>=0)
+                windowq = np.array([windowq]).T
+                
+
+
+            windowq = windowq/sqrt(qscale)
+            what = windowq*np.array([xhat]).T
+            w = np.fft.ifft(what.T)
+            tfr[:,kscale-1] = w
+            kscale+=1
+
+
+
+        scale*=2
+
+
+
+
+    """%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    """%% calculate the constant for reconstruction
+    %% TODO: calculate Rpsi for other mother wavelets"""
+    xi = np.arange(0.05,10+1/10000,1/10000)
+    
+    if (opts.motherwavelet == 'gaussian'):   
+        """%% Gaussian (not really wavelet)"""
+
+        psihat = lambda f: np.exp( -np.log(2)*power( 2*(f-opts.CENTER)/opts.FWHM,2))
+        windowq = psihat(xi)
+        Rpsi = sum(windowq/xi)/10000
+
+
+    elif (opts.motherwavelet == 'morlet'):
+        windowq = 4*sqrt(pi)*np.exp(-4*power(xi-0.69*pi,2))-4.89098e-4*4*sqrt(pi)*np.exp(-4*power(xi,2))
+        Rpsi = sum(windowq/xi)/10000
+
+    elif (opts.motherwavelet == 'Cinfc'):
+        tmp0 = (xi - opts.CENTER)/opts.FWHM
+        tmp1 = power(tmp0,2)-1
+        windowq = np.exp(1/tmp1)
+        windowq[xi >= (opts.CENTER+opts.FWHM)] = 0
+        windowq[xi <= (opts.CENTER-opts.FWHM)] = 0
+        Rpsi = sum(windowq/xi)/10000
+ 
+    else:
+        """%% Normalization is not implemented for Other mother wavelets"""
+        Rpsi = 1 
+  
+    tfr = tfr/Rpsi
+    
+    return tfr.T, tfrtic
+
+
+def sqCWTbase(t, x, freqlow, freqhigh, alpha, opts, Smooth, Hemi):
+    """
+    %
+    % Synchrosqueezing transform ver 0.5 (2015-03-09)
+    % You can find more information in 
+    %	http://sites.google.com/site/hautiengwu/
+    %
+    % Example: [~, tfrsq, ~, tfrsqtic] = sqCWT(time, xm, lowfreq, highfreq, alpha, opts);
+    %	time: 	time of the signal
+    %	xm: 	the signal to be analyzed
+    %	[lowfreq, highfreq]: the frequency range in the output time-frequency representation. For the sake of computational efficiency.
+    %	alpha:	the frequency resolution in the output time-frequency representation
+    %	opts:	parameters for the CWT analysis. See below
+    %	tfr/tfrtic:	the CWT and its scale tic
+    %	tfrsq/tfrsqtic: the SST-CWT and its frequency tic
+    %
+    % by Hau-tieng Wu v0.1 2011-06-20 (hauwu@math.princeton.edu)
+    %		  v0.2 2011-09-10
+    %		  v0.3 2012-03-03
+    %		  v0.4 2012-12-12
+    %		  v0.5 2015-03-09
+    %% you can play with these 4 parameters, but the results might not be
+    %% that different if the change is not crazy
+    """
+    Ex = np.mean(np.power(abs(x),2))
+    Gamma = 1.0e-8*Ex  
+    """% originally it was 1e-6*Ex"""    
+
+    """%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    dt = t[1] - t[0]
+
+    
+    """%+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    """%% Continuous wavelet transform""" 
+    tfr, tfrtic = CWT(t, x, opts)
+    Dtfr = (-1j/2/math.pi/dt)*np.concatenate((tfr[:,1:] - tfr[:,0:-1], np.array([tfr[:,-1]-tfr[:,-2]]).T),axis = 1) 
+    Dtfr[(abs(tfr) < Gamma)] = float('nan')
+    omega = Dtfr/tfr
+
+    """%+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
+    """%% Synchro-squeezing transform"""
+
+    tfrsq, tfrsqtic = SQ(tfr, omega, freqlow, freqhigh, alpha, Smooth, Hemi)
+    tfr = tfr
+    tfrsq = tfrsq
+    return tfr, tfrtic, tfrsq, tfrsqtic    
+
+
+
+
+"""%====================================================================="""
+"""%% function for CWT-based SST"""
+def SQ(tfd, omega, tfrsqticlow, tfrsqtichigh, alpha, Smooth, Hemi):
+    
+    nvoice = 32
+    scale = 2
+    omega = abs(omega)
+    nscale,n = tfd.shape
+    nalpha = np.floor((tfrsqtichigh - tfrsqticlow)/alpha)
+    tfrsq = np.zeros((int(nalpha),n),dtype=complex)
+    tfrsqtic = np.arange(1,nalpha+1)*alpha + tfrsqticlow
+    ntfrsqtic = len(tfrsqtic)
+    
+    Mid = round(ntfrsqtic/2)-1
+    Delta = 20*np.power(tfrsqtic[1]-tfrsqtic[0],2) 
+    weight = np.exp(-np.power(tfrsqtic[Mid-10:Mid+11]-tfrsqtic[Mid],2)/Delta)
+    weight = weight / sum(weight) 
+    weightIDX = np.arange(Mid-10,Mid+11) - Mid
+
+    for b in range(1,n+1):
+        for kscale in range(1,nscale+1):
+            qscale = scale*np.power(2,(kscale/nvoice))
+            
+            if (np.isfinite(omega[kscale-1,b-1]) and (omega[kscale-1,b-1]>0)):
+                k = int(np.floor( ( omega[kscale-1,b-1] - tfrsqticlow )/ alpha )+1)
+
+                if (np.isfinite(k) and (k > 0) and (k < ntfrsqtic-1)):
+                    ha = tfrsqtic[k]-tfrsqtic[k-1]
+
+
+                    if Smooth:
+                        IDXb = np.where(np.logical_and((k+weightIDX < ntfrsqtic-1) , (k+weightIDX > 0)))
+                        IDXa = k+weightIDX[IDXb]
+                        IDXa = IDXa.astype(int)
+                        
+                        if Hemi:
+                            if (tfd[kscale-1,b-1].real > 0):
+                                tfrsq[IDXa-1,b-1] = tfrsq[IDXa-1,b-1] + weight[IDXb]*np.log(2)*tfd[kscale-1,b-1]*np.sqrt(qscale)/ha/nvoice
+                            else:
+                                tfrsq[IDXa-1,b-1] = tfrsq[IDXa-1,b-1] - weight[IDXb]*np.log(2)*tfd[kscale-1,b-1]*np.sqrt(qscale)/ha/nvoice
+                    	
+                        else:
+                            tfrsq[IDXa-1,b-1] = tfrsq[IDXa-1,b-1] + np.log(2)*tfd[kscale-1,b-1]*np.sqrt(qscale)/ha/nvoice
+                	
+                    else:
+                        if Hemi:
+                            if (tfd[kscale-1,b-1].real>0):
+                                tfrsq[k-1,b-1] = tfrsq[k-1,b-1] + np.log(2)*tfd[kscale-1,b-1]*np.sqrt(qscale)/ha/nvoice
+                            else:
+                                tfrsq[k-1,b-1] = tfrsq[k-1,b-1] - np.log(2)*tfd[kscale-1,b-1]*np.sqrt(qscale)/ha/nvoice
+                                     
+                        else:
+                            tfrsq[k-1,b-1] = tfrsq[k-1,b-1] + np.log(2)*tfd[kscale-1,b-1]*np.sqrt(qscale)/ha/nvoice
+                                 
+    return tfrsq, tfrsqtic
+
+
+def ConceFT_CWT(t, x, lowfreq, highfreq, alpha, MT, opts, Smooth, Hemi):
+     
+    """%% ordinary SST"""
+    print('Run ordinary CWT-SST (Smooth = ',Smooth,', Hemi = ',Hemi,')\n')
+    tfr, tfrtic, tfrsq, tfrsqtic = sqCWTbase(t, x, lowfreq, highfreq, alpha, opts, Smooth, 0)
+
+    """%===========================
+    %% get the ConceFT"""	
+
+    ConceFT = tfrsq
+
+
+    if MT > 1:
+        print('CWT-ConceFT total (Smooth = ',Smooth,', Hemi = ',Hemi,'): ',MT,'; now:     ')
+        
+        for ii in range(1,MT+1):
+            print('\b\b\b\b') 
+            print('%4d' % ii)
+            _, _, tfrsqX, tfrsqtic = sqCWTbase(t, x, lowfreq, highfreq, alpha, opts, Smooth, Hemi)
+            
+            ConceFT = ConceFT + tfrsqX 
+	
+        print('\n')
+
+        ConceFT = ConceFT/(MT+1)
+        
+    return tfr, tfrtic, tfrsq, ConceFT, tfrsqtic
