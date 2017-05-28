@@ -44,7 +44,7 @@ def CWT(t, x, opts = init):
     if (n%2==0):
         xi = np.concatenate((np.arange(0,n/2+1) , np.arange(-n/2+1,0)))
     else:
-        xi = np.concatenate((np.arange(0,n/2) , np.arange(-n/2+1,-1)))
+        xi = np.concatenate((np.arange(0,n/2) , np.arange(-int(n/2),0)))
     xhat = np.fft.fft(x)
     
     noctave = np.floor(np.log2(n)) - Oct

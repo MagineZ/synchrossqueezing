@@ -49,4 +49,5 @@ def stran(h):
     
     ST=np.concatenate((st0,ST),axis = 0)
     
-    return ST
+    tfrtic = np.linspace(0, 0.5, ST.shape[0])
+    return tfrtic, ST

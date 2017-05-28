@@ -6,7 +6,7 @@
 import numpy as np
 import math
 import statsmodels.api as sm
-from imports import *    
+from functions import *    
 Hz = 100 
 """ the sampling time of the simulated signal"""
 time = np.arange(0,16,1/Hz)
@@ -102,7 +102,7 @@ FrequencyAxisResolution = 0.001
 	%% ConceFT: ConceFT of synchrosqueezed STFT.
 	%% tfrsqtic: frequency axis tic for the tfrsq and ConceFT
 """
-tfr, tfrtic, tfrsq, ConceFT, tfrsqtic = ConceFT_sqSTFT_C(xm, LowFrequencyLimit, HighFrequencyLimit, FrequencyAxisResolution, 1, WindowLength, NoWindowsInConceFT, WindowBandwidth, NoConceFT, 0, 0, 0) ;
+tfr, tfrtic, tfrsq, ConceFT, tfrsqtic = ConceFT_CWT(time,xm, LowFrequencyLimit, HighFrequencyLimit, FrequencyAxisResolution, 1, opts, 0,0) 
 
 """
 	%% plot the time frequency representation determined by
