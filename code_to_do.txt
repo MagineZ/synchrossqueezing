@@ -1,0 +1,53 @@
+after log:
+訊號本身
+detrand
+del mean kernel....
+median filter/kernel smoothing/fit polynominal
+
+1+log
+
+low/band/high pass filter
+     |
+notch filter...
+
+resampling methods
+
+nonlinear
+bilinear: WV Transform...
+
+1.linear
+2.bilinear WV+
+
+                           |
+stft -> 勾選 squezzing?reassigment?
+              |11
+              1st/2nd/fully nolinear
+              (右上)
+
+左下 power spectrum(optional)
+
+右下 bilinear (WV Distribution)
+
+2-2 2-3?
+
+
+T-F analysis
+z value log scale
+0.995 避免outlier 影響dynamic range最大值跟最小值的間距
+1+log
+調整dynamical range
+quantile
+
+時間scaling
+
+
+
+定義feature
+定義low freq high freq?
+stft
+ConceFT
+post processing
+驗證為何ConceFT會比較好
+difference: 數學
+多不准: 統計學
+

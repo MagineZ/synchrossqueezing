@@ -15,7 +15,6 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from functions import *
 import matplotlib.pyplot as plt
 
-import random
 
 class Window(QMainWindow):
     
@@ -277,6 +276,7 @@ class Window(QMainWindow):
         self.figure = plt.figure()
         self.canvas = FigureCanvas(self.figure)
         toolbar = NavigationToolbar(self.canvas, widget)
+        toolbar.setGeometry(0,0,1,1)
         ax = self.figure.add_subplot(111)
         ax.hold(False)
         ax.plot(self.x_raw, '-')

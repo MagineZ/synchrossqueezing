@@ -430,8 +430,10 @@ def ConceFT_sqSTFT_C(x, lowFreq, highFreq, alpha, hop, WinLen, dim, supp, MT, Se
 
     return tfr, tfrtic, tfrsq, ConceFT, tfrsqtic
 
-def imageSQ(ax, t, ytic, M, Qv, cm = 'Greys'):
-    
+def imageSQ(fig, axx, clb, t, ytic, M, Qv, scale_selection, cm = 'Greys'):
+    axx.clear()
+    clb.remove()
+    import matplotlib.colors as colors
     q = np.percentile(M,Qv)
     """ truncate the upper bound"""
     M[np.where(M>q)]=q
@@ -441,8 +443,24 @@ def imageSQ(ax, t, ytic, M, Qv, cm = 'Greys'):
     %m = quantile(Q, 0.002) ;
     %M(find(M<m)) = m ;
     """
-    ax.pcolorfast(t, ytic, M[:-1,:-1], cmap = cm)
     
+    M = M[:-1,:-1]
+    
+    if scale_selection == 0:
+        cax = axx.pcolorfast(t, ytic, M, cmap = cm)
+        clbb = fig.colorbar(cax, ax=axx, extend='max')
+    
+    elif scale_selection == 1:
+        """
+        if M.min() == 0:
+            M+=1
+            
+        cax= axx.pcolorfast(t, ytic, M, norm=colors.LogNorm(vmin=M.min(), vmax=M.max()), cmap=cm)
+        """
+        cax= axx.pcolorfast(t, ytic, M, norm=colors.SymLogNorm(linthresh=0.03, linscale=0.03,vmin=M.min(), vmax=M.max()), cmap=cm)
+        clbb = fig.colorbar(cax, ax=axx, extend='max')
+    
+    return clbb
     
     
 def wwhat(f,beta,gam,k):
@@ -1034,3 +1052,11 @@ def ConceFT_rsSTFT_C(x, lowFreq, highFreq, alpha, hop, WinLen, dim, supp, MT):
         print('\n') 
     
     return tfr, tfrtic, tfrrs, ConceFT, tfrrstic
+
+def signal_filter(t,x,detrend):
+    from scipy import signal
+    time = t
+    f_x = x
+    if detrend:
+        f_x = signal.detrend(x)
+    return time, f_x
